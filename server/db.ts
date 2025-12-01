@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertTask, InsertUser, tasks, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,60 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// Task queries
+export async function getUserTasks(userId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get tasks: database not available");
+    return [];
+  }
+
+  return db.select().from(tasks).where(eq(tasks.userId, userId)).orderBy(desc(tasks.createdAt));
+}
+
+export async function createTask(task: InsertTask) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot create task: database not available");
+    throw new Error("Database not available");
+  }
+
+  const result = await db.insert(tasks).values(task);
+  return result;
+}
+
+export async function updateTask(taskId: number, userId: number, updates: Partial<InsertTask>) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot update task: database not available");
+    throw new Error("Database not available");
+  }
+
+  await db
+    .update(tasks)
+    .set(updates)
+    .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+}
+
+export async function deleteTask(taskId: number, userId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot delete task: database not available");
+    throw new Error("Database not available");
+  }
+
+  await db.delete(tasks).where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+}
+
+export async function toggleTaskCompletion(taskId: number, userId: number, completed: boolean) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot toggle task: database not available");
+    throw new Error("Database not available");
+  }
+
+  await db
+    .update(tasks)
+    .set({ completed: completed ? 1 : 0 })
+    .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
+}
